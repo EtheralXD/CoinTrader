@@ -1,3 +1,9 @@
+import sys
+import asyncio
+
+if sys.platform.startswith('win'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import ccxt
 import pandas as pd
 import time
@@ -5,25 +11,33 @@ import os
 import requests
 import discord
 from discord.ext import commands
+from discord.ext import tasks
 from ta.volatility import DonchianChannel
 from ta.volume import ChaikinMoneyFlowIndicator
+from dotenv import load_dotenv
+
+load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 client = discord.Client(intents=intents)
 
+@bot.event
 async def on_ready():
-    print(f"✅ Logged in as {client.user}")
+    print(f"✅ Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
         print(f"🔧 Synced {len(synced)} slash command(s).")
     except Exception as e:
         print(f"❌ Sync failed: {e}")
 
+    run_strategy_loop.start()
+
+
 api_key = os.getenv("API_KEY")
 secret = os.getenv("SECRET_KEY")
-client.run("TOKEN")
+
 
 print("You ready to get trading? 👍")
 
@@ -62,11 +76,17 @@ def fetch_trend(symbol):
     return df.iloc[-1]['close'] > df.iloc[-1]['ema50']
 
 # Trading system 
-async def strategy(df, symbol):
+async def strategy(df, symbol, for_button):
     last = df.iloc[-1]
+    messages = []
 
     if not fetch_trend(symbol):
-        print(f"[{last['timestamp']}] ⛔ Warning (No 1H trend confirmation) coin: {symbol}")
+        timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+        message = f"{timestamp} ⛔ Warning (No 1H trend confirmation) coin: {symbol}"
+        print(message)
+        if for_button: messages.append(message)
+    else:
+        print(f"[{last['timestamp']}] 📈📉 1H trend is confirmed send it! coin: {symbol}")
         
     
     cmf_strength = last['cmf']
@@ -77,42 +97,70 @@ async def strategy(df, symbol):
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
             if signal_score >= 0.30:
-                message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{last['timestamp']}`"
+                timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+                message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{timestamp}`"
                 try:
-                    await message.channel.send(json={"content": message})
+                    print(message)
+                    if for_button: messages.append(message)
                 except Exception as e:
-                    print(f"❌ Failed to send Discord alert: {e}")
+                    print(f"❌ Failed to print alert: {e}")
 
             print(f"[{last['timestamp']}] ✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.20:
-                message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{last['timestamp']}`"
+                timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+                message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{timestamp}`"
                 try:
-                    await message.channel.send(json={"content": message})
+                    print(message)
+                    if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
             print(f"[{last['timestamp']}] ❌ SELL Bias Signal - Score: {-signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         else:
-            print(f"[{last['timestamp']}] ⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+            message = f"{timestamp} ⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
+            print(message)
+            if for_button: messages.append(message)
+
+        return messages
 
     except Exception as e:
         print(e)
 
+class TradeView(discord.ui.View):
+    @discord.ui.button(label="View the signals", style=discord.ButtonStyle.primary, custom_id="view_signals")
+    async def view_signals(self, interaction: discord.Interaction, button: discord.ui.Button):
+        messages = []
+        for symbol in symbols:
+            df = fetch_ohlcv(symbol)
+            df = apply_indicators(df)
+            signal = await strategy(df, symbol, for_button=True)
+            if signal:
+                messages.append(signal)
 
+        content = "\n\n".join(str(m) for m in messages) if messages else "No strong signals right now."
+        await interaction.response.send_message(content=content, ephemeral=True)
 
-while True:
+#Discord interaction
+@bot.tree.command(name="tradepanel", description="Trading panel duh")
+async def tradepanel(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📊 Trade Panel",
+        description="This is your Trade Panel go make a bag 💰",
+        color=discord.Color.blue(),
+    )
+    embed.add_field(name="Version", value="v2.0", inline=False)
+
+    view = TradeView()
+    view.add_item(discord.ui.Button(label="Visit GitHub", style=discord.ButtonStyle.link, url="https://github.com/EtheralXD/PyTrader.v2"))
+
+    await interaction.response.send_message(embed=embed, view=view,  ephemeral=True)
+
+@tasks.loop(minutes=5)
+async def run_strategy_loop():
     for symbol in symbols:
         df = fetch_ohlcv(symbol)
         df = apply_indicators(df)
-        strategy(df, symbol)
-        
-    now = time.time()
-    sleep_time = 300 - (now % 300)
-    time.sleep(sleep_time)
+        await strategy(df, symbol, for_button=False)
 
-
-#Discord interaction
-@bot.tree.command(name="TradePanel", description="Trading panel duh")
-async def TradePanel(interaction: discord.Interaction):
-    await interaction.response.send_message("")
-
+bot.run(os.getenv("TOKEN"))
