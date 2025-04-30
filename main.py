@@ -97,8 +97,7 @@ async def strategy(df, symbol, for_button):
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
             if signal_score >= 0.30:
-                timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-                message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{timestamp}`"
+                message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)
                     if for_button: messages.append(message)
@@ -108,8 +107,7 @@ async def strategy(df, symbol, for_button):
             print(f"[{last['timestamp']}] ✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.20:
-                timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-                message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`\nTime: `{timestamp}`"
+                message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)
                     if for_button: messages.append(message)
@@ -117,8 +115,7 @@ async def strategy(df, symbol, for_button):
                     print(f"❌ Failed to send Discord alert: {e}")
             print(f"[{last['timestamp']}] ❌ SELL Bias Signal - Score: {-signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         else:
-            timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-            message = f"{timestamp} ⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
+            message = f"⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
             print(message)
             if for_button: messages.append(message)
 
