@@ -104,7 +104,7 @@ async def strategy(df, symbol, for_button):
                 except Exception as e:
                     print(f"❌ Failed to print alert: {e}")
 
-            print(f"[{last['timestamp']}] ✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            print(f"✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.20:
                 message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
@@ -113,7 +113,7 @@ async def strategy(df, symbol, for_button):
                     if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
-            print(f"[{last['timestamp']}] ❌ SELL Bias Signal - Score: {-signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            print(f"❌ SELL Bias Signal - Score: {-signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         else:
             message = f"⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
             print(message)
