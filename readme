@@ -1,0 +1,12 @@
+This is the second iteration of the Python based trading bot for MEXC exchange.
+
+Upgrades: 
+Multi coin tracking
+1h trend confirmation
+
+Coin Score system:
+> 0.15	Good BUY strength
+> 0.30	Strong BUY confidence
+< -0.15	Good SELL strength
+< -0.30	Strong SELL confidence
+Between -0.15 to 0.15	Weak/sideways signals
