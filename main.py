@@ -175,7 +175,7 @@ async def tradepanel(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, view=view,  ephemeral=True)
 
-@tasks.loop(minutes=5)
+@tasks.loop(minutes=15)
 async def run_strategy_loop():
     for symbol in symbols:
         df = fetch_ohlcv(symbol)
