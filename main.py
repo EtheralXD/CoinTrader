@@ -40,6 +40,7 @@ secret = os.getenv("SECRET_KEY")
 
 
 print("You ready to get trading? 👍")
+vers = "v2.1"
 
 exchange = ccxt.mexc({
     'apiKey': api_key,
@@ -73,20 +74,41 @@ def fetch_trend(symbol):
     data = exchange.fetch_ohlcv(symbol, '1h', limit=50)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
-    return df.iloc[-1]['close'] > df.iloc[-1]['ema50']
+    last_close = df.iloc[-1]['close']
+    last_ema = df.iloc[-1]['ema50']
+
+    if last_close > last_ema:
+        return "uptrend"
+    elif last_close < last_ema:
+        return "downtrend"
+    else:
+        return "no trend"
+
 
 # Trading system 
 async def strategy(df, symbol, for_button):
     last = df.iloc[-1]
     messages = []
 
-    if not fetch_trend(symbol):
+    trend = fetch_trend(symbol)
+    if trend == "uptrend": 
+        trend_emoji = "📈"
+    elif trend == "downtrend":
+        trend_emoji = "📉"
+    else:
+        trend_emoji = "❔"
+
+    if trend == "no trend":
         timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
         message = f"{timestamp} ⛔ Warning (No 1H trend confirmation) coin: {symbol}"
         print(message)
-        if for_button: messages.append(message)
+    if for_button: messages.append(message)
     else:
-        print(f"[{last['timestamp']}] 📈📉 1H trend is confirmed send it! coin: {symbol}")
+        timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
+        message = f"{timestamp} {trend_emoji} 1H trend is confirmed ({trend.upper()}) coin: {symbol}"
+        print(message)
+    if for_button: messages.append(message)
+
         
     
     cmf_strength = last['cmf']
@@ -146,7 +168,7 @@ async def tradepanel(interaction: discord.Interaction):
         description="This is your Trade Panel go make a bag 💰",
         color=discord.Color.blue(),
     )
-    embed.add_field(name="Version", value="v2.0", inline=False)
+    embed.add_field(name="Version", value=vers, inline=False)
 
     view = TradeView()
     view.add_item(discord.ui.Button(label="Visit GitHub", style=discord.ButtonStyle.link, url="https://github.com/EtheralXD/PyTrader.v2"))
