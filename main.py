@@ -49,7 +49,7 @@ exchange = ccxt.mexc({
 })
 
 symbols = ['MOODENG/USDT', 'PIPPIN/USDT']
-timeframe = '5m'
+timeframe = '15m'
 limit = 100
 
 def fetch_ohlcv(symbol):
