@@ -181,10 +181,10 @@ async def strategy(df, symbol, for_button):
     price_above_ema = (last['close'] - last['ema50']) / last['ema50']
     price_above_middle = (last['close'] - last['donchian_middle']) / last['donchian_middle']
 
-    signal_score = (cmf_strength * 0.5) + (price_above_ema * 0.3) + (price_above_middle * 0.2)
+    signal_score = (cmf_strength * 1.0) + (price_above_ema * 0.5) + (price_above_middle * 0.3)
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
-            if signal_score >= 0.30:
+            if signal_score >= 0.10:
                 message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)
@@ -197,7 +197,7 @@ async def strategy(df, symbol, for_button):
 
             print(f"✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
-            if signal_score <= -0.20:
+            if signal_score <= -0.10:
                 message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)

@@ -1,16 +1,39 @@
-This is the second iteration of the Python based trading bot for MEXC exchange.
-
-Newest version is 3.0.0
-
-Patch Notes: 
-Ability to open & close long/short trades 
-Exit strategy added to close trades at a set profit value
-
 Coin Score system:
-> 0.15	Good BUY strength
-> 0.30	Strong BUY confidence
-< -0.15	Good SELL strength
-< -0.30	Strong SELL confidence
-Between -0.15 to 0.15	Weak/sideways signals
+> 0.5	Good BUY strength
+> 0.10	Strong BUY confidence
+< -0.5	Good SELL strength
+< -0.10	Strong SELL confidence
+Between -0.4 to 0.4	Weak/sideways signals
 
 To use discord functions use /tradepanel
+
+## [3.0.1] - 2025-05-04
+### Changed
+- Tweaked Coin Score system calculation.
+- Lowered the entry position threshold.
+- Changed format for showing patch notes.
+
+## [3.0.0] - 2025-05-04
+### Added
+- Automated trade opening and closing system.
+- Profit calculation logic based on entry and exit price.
+- Trend detection with emoji status.
+- Integration of a trading capital system ($100 base balance).
+- Basic exit strategy to close trades when profit target is reached.
+
+### Changed
+- Updated signal messaging to include more detailed trend status.
+
+### Fixed
+- Global variable scope issues for trading state (in_trade, long_trade, etc).
+
+---
+
+## [2.1.0] - 2025-05-01
+### Added
+- Donchian Channel and Chaikin Money Flow indicators.
+- Trend detection and signal scoring.
+- Discord trade panel with signal viewing.
+
+### Changed
+- Refactored message formatting and strategy output
