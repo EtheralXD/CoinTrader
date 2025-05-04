@@ -40,7 +40,7 @@ secret = os.getenv("SECRET_KEY")
 
 
 print("You ready to get trading? 👍")
-vers = "v2.1"
+vers = "3.0.0"
 
 exchange = ccxt.mexc({
     'apiKey': api_key,
@@ -51,6 +51,13 @@ exchange = ccxt.mexc({
 symbols = ['MOODENG/USDT', 'PIPPIN/USDT']
 timeframe = '15m'
 limit = 100
+
+in_trade = False
+long_trade = False
+short_trade = False
+profit = 0
+money_available = 100
+entry_price = 0
 
 def fetch_ohlcv(symbol):
     data = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -83,10 +90,62 @@ def fetch_trend(symbol):
         return "downtrend"
     else:
         return "no trend"
+    
+def open_trade(symbol, price):
+    global in_trade, long_trade, short_trade, money_available, profit, entry_price
+    entry_price = price
+    try:
+        if long_trade == True:
+            money_available -= 10
+            print(f"long position has been opened at Price: {price} on Coin: {symbol}")
+        elif short_trade == True:
+            money_available -= 10
+            print(f"Short position has been opened at Price: {price} on Coin: {symbol}")
 
+        in_trade = True
+    except Exception as e:
+        print(e)
+        
+def close_trade(symbol, price):
+    global in_trade, long_trade, short_trade, money_available, profit, entry_price
+    try:
+        if long_trade == True:
+            profit = (price - entry_price) * 10
+            long_trade = False
+            money_available += profit
+            print(f"Long trade has been closed at {price} on {symbol} your pnl was: {profit}")
+        elif short_trade == True: 
+            profit = (entry_price - price) * 10
+            short_trade = False
+            money_available += profit
+            print(f"Short trade has been closed at {price} on {symbol} your pnl was: {profit}")
+
+        in_trade = False
+    except Exception as e:
+        print(e)
+    print(f"Trade has been closed at {price} on {symbol} your pnl was: {profit}")
+    
+def exit_strategy(symbol, price):
+    global profit
+    current_profit = 0
+    if long_trade:
+        current_profit = (price - entry_price) * 10
+    elif short_trade:
+        current_profit = (entry_price - price) * 10
+
+    try:
+        if long_trade and current_profit >= 10:
+            close_trade(symbol, price)
+        elif short_trade and current_profit >= 10:
+            close_trade(symbol, price)
+        else:
+            return "no trades at this time"
+    except Exception as e:
+        print(e)
 
 # Trading system 
 async def strategy(df, symbol, for_button):
+    global long_trade, short_trade, in_trade, profit, money_available, entry_price
     last = df.iloc[-1]
     messages = []
 
@@ -109,8 +168,15 @@ async def strategy(df, symbol, for_button):
         print(message)
     if for_button: messages.append(message)
 
-        
-    
+    if long_trade:
+        profit = (last['close'] - entry_price) * 10
+    elif short_trade:
+        profit = (entry_price - last['close']) * 10
+    else:
+        profit = 0
+
+    exit_strategy(symbol, last['close'])
+
     cmf_strength = last['cmf']
     price_above_ema = (last['close'] - last['ema50']) / last['ema50']
     price_above_middle = (last['close'] - last['donchian_middle']) / last['donchian_middle']
@@ -122,6 +188,9 @@ async def strategy(df, symbol, for_button):
                 message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)
+                    if money_available >= 10 and not in_trade:
+                        long_trade = True
+                        open_trade(symbol, last['close'])
                     if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to print alert: {e}")
@@ -132,6 +201,9 @@ async def strategy(df, symbol, for_button):
                 message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
                     print(message)
+                    if money_available >= 10 and not in_trade:
+                        short_trade = True
+                        open_trade(symbol, last['close'])
                     if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
