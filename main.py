@@ -40,7 +40,7 @@ secret = os.getenv("SECRET_KEY")
 
 
 print("You ready to get trading? 👍")
-vers = "3.0.0"
+vers = "3.1.1"
 
 exchange = ccxt.mexc({
     'apiKey': api_key,
@@ -56,8 +56,12 @@ in_trade = False
 long_trade = False
 short_trade = False
 profit = 0
-money_available = 100
 entry_price = 0
+money_available = 100
+risk_percent = 0.1
+profit_goal = 0.3
+position_size = money_available * risk_percent
+pnl_target = position_size * profit_goal
 
 def fetch_ohlcv(symbol):
     data = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -95,14 +99,10 @@ def open_trade(symbol, price):
     global in_trade, long_trade, short_trade, money_available, profit, entry_price
     entry_price = price
     try:
-        if long_trade == True:
-            money_available -= 10
-            print(f"long position has been opened at Price: {price} on Coin: {symbol}")
-        elif short_trade == True:
-            money_available -= 10
-            print(f"Short position has been opened at Price: {price} on Coin: {symbol}")
-
-        in_trade = True
+        if long_trade or short_trade:
+            money_available -= position_size
+            print(f"✅ {'Long' if long_trade else 'Short'} position has been opened at Price: {price} on Coin: {symbol}")
+            in_trade = True
     except Exception as e:
         print(e)
         
@@ -110,33 +110,28 @@ def close_trade(symbol, price):
     global in_trade, long_trade, short_trade, money_available, profit, entry_price
     try:
         if long_trade == True:
-            profit = (price - entry_price) * 10
+            profit = (price - entry_price) * (position_size / entry_price)
             long_trade = False
-            money_available += profit
-            print(f"Long trade has been closed at {price} on {symbol} your pnl was: {profit}")
         elif short_trade == True: 
-            profit = (entry_price - price) * 10
+            profit = (entry_price - price) * (position_size / entry_price)
             short_trade = False
-            money_available += profit
-            print(f"Short trade has been closed at {price} on {symbol} your pnl was: {profit}")
 
+        money_available += position_size + profit
+        print(f"🚫 {'Long' if long_trade else 'Short'} trade closed at {price} on {symbol}. PnL: {profit:.2f}")
         in_trade = False
     except Exception as e:
         print(e)
-    print(f"Trade has been closed at {price} on {symbol} your pnl was: {profit}")
     
 def exit_strategy(symbol, price):
     global profit
     current_profit = 0
     if long_trade:
-        current_profit = (price - entry_price) * 10
+        current_profit = (price - entry_price) * (position_size / entry_price)
     elif short_trade:
-        current_profit = (entry_price - price) * 10
+        current_profit = (entry_price - price) * (position_size / entry_price)
 
     try:
-        if long_trade and current_profit >= 10:
-            close_trade(symbol, price)
-        elif short_trade and current_profit >= 10:
+        if (long_trade or short_trade) and current_profit >= pnl_target:
             close_trade(symbol, price)
         else:
             return "no trades at this time"
@@ -169,9 +164,9 @@ async def strategy(df, symbol, for_button):
     if for_button: messages.append(message)
 
     if long_trade:
-        profit = (last['close'] - entry_price) * 10
+        profit = (last['close'] - entry_price) * (position_size / entry_price)
     elif short_trade:
-        profit = (entry_price - last['close']) * 10
+        profit = (entry_price - last['close']) * (position_size / entry_price)
     else:
         profit = 0
 
@@ -181,12 +176,25 @@ async def strategy(df, symbol, for_button):
     price_above_ema = (last['close'] - last['ema50']) / last['ema50']
     price_above_middle = (last['close'] - last['donchian_middle']) / last['donchian_middle']
 
-    signal_score = (cmf_strength * 1.0) + (price_above_ema * 0.5) + (price_above_middle * 0.3)
+    atr = df['high'] - df['low']
+    recent_volatility = atr.tail(20).mean() / last['close']
+
+    if recent_volatility == 0:
+        recent_volatility = 0.0001
+
+    price_above_ema_scaled = price_above_ema / recent_volatility
+    price_above_middle_scaled = price_above_middle / recent_volatility
+
+    cmf_component = max(min(cmf_strength * abs(cmf_strength), 1), -1)
+
+    signal_score = (cmf_component * 0.3) + (price_above_ema_scaled * 0.4) + (price_above_middle_scaled * 0.3)
+    strong_signal = False
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
             if signal_score >= 0.10:
                 message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
+                    strong_signal = True
                     print(message)
                     if money_available >= 10 and not in_trade:
                         long_trade = True
@@ -195,11 +203,12 @@ async def strategy(df, symbol, for_button):
                 except Exception as e:
                     print(f"❌ Failed to print alert: {e}")
 
-            print(f"✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            if strong_signal == False: print(f"✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.10:
                 message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
                 try:
+                    strong_signal = True
                     print(message)
                     if money_available >= 10 and not in_trade:
                         short_trade = True
@@ -207,7 +216,7 @@ async def strategy(df, symbol, for_button):
                     if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
-            print(f"❌ SELL Bias Signal - Score: {-signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            if strong_signal == False: print(f"❌ SELL Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
         else:
             message = f"⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
             print(message)

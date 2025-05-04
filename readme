@@ -7,6 +7,22 @@ Between -0.4 to 0.4	Weak/sideways signals
 
 To use discord functions use /tradepanel
 
+## [3.1.1] - 2025-05-04
+### Added 
+- Dynamic position sizing.
+- Risk % values.
+- New score system that integrates average volatility.
+
+### Changed
+- PNL now calculated based of position size and profit goal.
+- Retweak of coin score system as too high scores being printed.
+- Removed some redundances in the code.
+- Added ✅ & 🚫 to make open & close of trades more visable in terminal.
+- Strong signals will now stop Bias signals from printing.
+
+### Fixed
+- Sell bias not showing negative score numbers.
+
 ## [3.0.1] - 2025-05-04
 ### Changed
 - Tweaked Coin Score system calculation.
