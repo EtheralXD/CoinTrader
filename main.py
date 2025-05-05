@@ -221,7 +221,7 @@ async def strategy(df, symbol, for_button):
                 message = f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
                 try:
                     strong_signal = True
-                    log_and_print(f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY", signal_score, last['close'], score=signal_score)
+                    log_and_print(f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY", symbol, last['close'], score=signal_score)
                     if money_available >= 10 and not in_trade:
                         long_trade = True
                         open_trade(symbol, last['close'])

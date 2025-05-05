@@ -5,6 +5,7 @@
 ### Fixed
 - Trend direction not showing in log.
 - Failed to print alert when theres a strong buy signal.
+- Symbol printing score instead of symbol in strong buy. (was saved but not staged in last commit)
 
 ---
 
