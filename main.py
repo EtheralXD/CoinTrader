@@ -1,5 +1,6 @@
 import sys
 import asyncio
+import json
 
 if sys.platform.startswith('win'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -101,7 +102,7 @@ def open_trade(symbol, price):
     try:
         if long_trade or short_trade:
             money_available -= position_size
-            print(f"✅ {'Long' if long_trade else 'Short'} position has been opened at Price: {price} on Coin: {symbol}")
+            log_and_print(f"✅ OPEN {'Long' if long_trade else 'Short'} TRADE", symbol, price)
             in_trade = True
     except Exception as e:
         print(e)
@@ -117,7 +118,7 @@ def close_trade(symbol, price):
             short_trade = False
 
         money_available += position_size + profit
-        print(f"🚫 {'Long' if long_trade else 'Short'} trade closed at {price} on {symbol}. PnL: {profit:.2f}")
+        log_and_print(f"🚫 CLOSE {'Long' if long_trade else 'Short'} TRADE", symbol, price, profit=profit)
         in_trade = False
     except Exception as e:
         print(e)
@@ -132,11 +133,42 @@ def exit_strategy(symbol, price):
 
     try:
         if (long_trade or short_trade) and current_profit >= pnl_target:
+            log_and_print("🎯 EXIT TARGET HIT", symbol, price, profit=current_profit)
             close_trade(symbol, price)
         else:
             return "no trades at this time"
     except Exception as e:
         print(e)
+
+def log_and_print(event_type, symbol, price, score=None, profit=None):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    print(f"[{timestamp}] {event_type} | Symbol: {symbol} | Price: {price:.6f}", end="")
+    if score is not None:
+        print(f" | Score: {score:.3f}", end="")
+    if profit is not None:
+        print(f" | PnL: {profit:.2f}", end="")
+    print("") 
+
+    log_entry = {
+        "timestamp": timestamp,
+        "event": event_type,
+        "symbol": symbol,
+        "price": round(price, 6),
+        "score": round(score, 3) if score is not None else None,
+        "profit": round(profit, 2) if profit is not None else None
+    }
+
+    try:
+        with open("trade_log.json", "r") as f:
+            logs = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logs = []
+
+    logs.append(log_entry)
+
+    with open("trade_log.json", "w") as f:
+        json.dump(logs, f, indent=4)
 
 # Trading system 
 async def strategy(df, symbol, for_button):
@@ -152,16 +184,7 @@ async def strategy(df, symbol, for_button):
     else:
         trend_emoji = "❔"
 
-    if trend == "no trend":
-        timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-        message = f"{timestamp} ⛔ Warning (No 1H trend confirmation) coin: {symbol}"
-        print(message)
-    if for_button: messages.append(message)
-    else:
-        timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
-        message = f"{timestamp} {trend_emoji} 1H trend is confirmed ({trend.upper()}) coin: {symbol}"
-        print(message)
-    if for_button: messages.append(message)
+    timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
 
     if long_trade:
         profit = (last['close'] - entry_price) * (position_size / entry_price)
@@ -189,13 +212,15 @@ async def strategy(df, symbol, for_button):
 
     signal_score = (cmf_component * 0.3) + (price_above_ema_scaled * 0.4) + (price_above_middle_scaled * 0.3)
     strong_signal = False
+        
+    strong_signal = False
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
             if signal_score >= 0.10:
-                message = f"🚀 STRONG BUY SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
+                message = f"🚀 STRONG BUY SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
                 try:
                     strong_signal = True
-                    print(message)
+                    log_and_print("🚀STRONG BUY", signal_score)
                     if money_available >= 10 and not in_trade:
                         long_trade = True
                         open_trade(symbol, last['close'])
@@ -203,23 +228,31 @@ async def strategy(df, symbol, for_button):
                 except Exception as e:
                     print(f"❌ Failed to print alert: {e}")
 
-            if strong_signal == False: print(f"✅ BUY Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            if not strong_signal: 
+                log_and_print("✅BUY BIAS", symbol, last['close'], score=signal_score)
+                message = f"✅ BUY BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}" 
+                if for_button: messages.append(message)
+
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.10:
-                message = f"⤵️ STRONG SELL SIGNAL!\nSymbol: `{symbol}`\nPrice: `{last['close']}`\nScore: `{signal_score:.2f}`"
+                message = f"⤵️ STRONG SELL SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
                 try:
                     strong_signal = True
-                    print(message)
+                    log_and_print("⤵️STRONG SELL", symbol, last['close'], score=signal_score)
                     if money_available >= 10 and not in_trade:
                         short_trade = True
                         open_trade(symbol, last['close'])
                     if for_button: messages.append(message)
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
-            if strong_signal == False: print(f"❌ SELL Bias Signal - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}")
+            if not strong_signal: 
+                log_and_print("❌SELL BIAS", symbol, last['close'], score=signal_score)
+                message = f"❌ SELL BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
+                if for_button: messages.append(message)
+
         else:
-            message = f"⏳ HOLD - Score: {signal_score:.2f} - Price: {last['close']} coin: {symbol}"
-            print(message)
+            log_and_print("⏳HOLD", symbol, last['close'], score=signal_score)
+            message = f"⏳ HOLD Score: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
             if for_button: messages.append(message)
 
         return messages

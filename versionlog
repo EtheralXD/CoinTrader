@@ -1,0 +1,59 @@
+## [3.2.1] - 2025-05-05
+### Added
+- New cleaner printing style with Log.
+- Json file logging.
+- Version log file for previous versions.
+
+### Fixed
+- Incorrect message format when showing on discord.
+
+---
+
+## [3.1.1] - 2025-05-04
+### Added 
+- Dynamic position sizing.
+- Risk % values.
+- New score system that integrates average volatility.
+
+### Changed
+- PNL now calculated based of position size and profit goal.
+- Retweak of coin score system as too high scores being printed.
+- Removed some redundances in the code.
+- Added ✅ & 🚫 to make open & close of trades more visable in terminal.
+- Strong signals will now stop Bias signals from printing.
+
+### Fixed
+- Sell bias not showing negative score numbers.
+
+## [3.0.1] - 2025-05-04
+### Changed
+- Tweaked Coin Score system calculation.
+- Lowered the entry position threshold.
+- Changed format for showing patch notes.
+
+---
+
+## [3.0.0] - 2025-05-04
+### Added
+- Automated trade opening and closing system.
+- Profit calculation logic based on entry and exit price.
+- Trend detection with emoji status.
+- Integration of a trading capital system ($100 base balance).
+- Basic exit strategy to close trades when profit target is reached.
+
+### Changed
+- Updated signal messaging to include more detailed trend status.
+
+### Fixed
+- Global variable scope issues for trading state (in_trade, long_trade, etc).
+
+---
+
+## [2.1.0] - 2025-05-01
+### Added
+- Donchian Channel and Chaikin Money Flow indicators.
+- Trend detection and signal scoring.
+- Discord trade panel with signal viewing.
+
+### Changed
+- Refactored message formatting and strategy output
