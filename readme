@@ -7,13 +7,12 @@ Between -0.4 to 0.4	Weak/sideways signals
 
 To use discord functions use /tradepanel
 
-## [3.2.1] - 2025-05-05
-### Added
-- New cleaner printing style with Log.
-- Json file logging.
-- Version log file for viewing all versions.
+## [3.2.2] - 2025-05-05
+### Changed
+- Enhanced the exception handling response.
 
 ### Fixed
-- Incorrect message format when showing on discord.
+- Trend direction not showing in log.
+- Failed to print alert when theres a strong buy signal.
 
 For all versions please see versionlog

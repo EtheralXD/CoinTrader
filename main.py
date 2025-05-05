@@ -41,7 +41,7 @@ secret = os.getenv("SECRET_KEY")
 
 
 print("You ready to get trading? 👍")
-vers = "3.1.1"
+vers = "3.2.2"
 
 exchange = ccxt.mexc({
     'apiKey': api_key,
@@ -105,10 +105,11 @@ def open_trade(symbol, price):
             log_and_print(f"✅ OPEN {'Long' if long_trade else 'Short'} TRADE", symbol, price)
             in_trade = True
     except Exception as e:
-        print(e)
+        print(f"Exception in open_trade: {e}")
         
 def close_trade(symbol, price):
     global in_trade, long_trade, short_trade, money_available, profit, entry_price
+    
     try:
         if long_trade == True:
             profit = (price - entry_price) * (position_size / entry_price)
@@ -121,7 +122,7 @@ def close_trade(symbol, price):
         log_and_print(f"🚫 CLOSE {'Long' if long_trade else 'Short'} TRADE", symbol, price, profit=profit)
         in_trade = False
     except Exception as e:
-        print(e)
+        print(f"Exception in close_trade: {e}")
     
 def exit_strategy(symbol, price):
     global profit
@@ -138,7 +139,7 @@ def exit_strategy(symbol, price):
         else:
             return "no trades at this time"
     except Exception as e:
-        print(e)
+        print(f"Exception in exit_strategy: {e}")
 
 def log_and_print(event_type, symbol, price, score=None, profit=None):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -217,10 +218,10 @@ async def strategy(df, symbol, for_button):
     try:
         if last['close'] > last['donchian_middle'] and last['cmf'] > 0 and last['close'] > last['ema50']:
             if signal_score >= 0.10:
-                message = f"🚀 STRONG BUY SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
+                message = f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
                 try:
                     strong_signal = True
-                    log_and_print("🚀STRONG BUY", signal_score)
+                    log_and_print(f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY", signal_score, last['close'], score=signal_score)
                     if money_available >= 10 and not in_trade:
                         long_trade = True
                         open_trade(symbol, last['close'])
@@ -229,16 +230,16 @@ async def strategy(df, symbol, for_button):
                     print(f"❌ Failed to print alert: {e}")
 
             if not strong_signal: 
-                log_and_print("✅BUY BIAS", symbol, last['close'], score=signal_score)
-                message = f"✅ BUY BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}" 
+                log_and_print(f"{trend_emoji} {trend.upper()} | ✅BUY BIAS", symbol, last['close'], score=signal_score)
+                message = f"{trend_emoji} {trend.upper()} | ✅ BUY BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}" 
                 if for_button: messages.append(message)
 
         elif last['close'] < last['donchian_middle'] and last['cmf'] < 0 and last['close'] < last['ema50']:
             if signal_score <= -0.10:
-                message = f"⤵️ STRONG SELL SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
+                message = f"{trend.upper()} | ⤵️ STRONG SELL SIGNAL! Symbol: `{symbol}` Price: `{last['close']}` Score: `{signal_score:.2f}`"
                 try:
                     strong_signal = True
-                    log_and_print("⤵️STRONG SELL", symbol, last['close'], score=signal_score)
+                    log_and_print(f"{trend_emoji} {trend.upper()} | ⤵️STRONG SELL", symbol, last['close'], score=signal_score)
                     if money_available >= 10 and not in_trade:
                         short_trade = True
                         open_trade(symbol, last['close'])
@@ -246,19 +247,19 @@ async def strategy(df, symbol, for_button):
                 except Exception as e:
                     print(f"❌ Failed to send Discord alert: {e}")
             if not strong_signal: 
-                log_and_print("❌SELL BIAS", symbol, last['close'], score=signal_score)
-                message = f"❌ SELL BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
+                log_and_print(f"{trend_emoji} {trend.upper()} | ❌SELL BIAS", symbol, last['close'], score=signal_score)
+                message = f"{trend_emoji} {trend.upper()} | ❌ SELL BIAS: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
                 if for_button: messages.append(message)
 
         else:
-            log_and_print("⏳HOLD", symbol, last['close'], score=signal_score)
-            message = f"⏳ HOLD Score: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
+            log_and_print(f"{trend_emoji} {trend.upper()} | ⏳ HOLD", symbol, last['close'], score=signal_score)
+            message = f"{trend_emoji} {trend.upper()} | ⏳ HOLD Score: {signal_score:.2f} Price: {last['close']} coin: {symbol}"
             if for_button: messages.append(message)
 
         return messages
 
     except Exception as e:
-        print(e)
+        print(f"Exception in strategy: {e}")
 
 class TradeView(discord.ui.View):
     @discord.ui.button(label="View the signals", style=discord.ButtonStyle.primary, custom_id="view_signals")
