@@ -7,13 +7,10 @@ Between -0.4 to 0.4	Weak/sideways signals
 
 To use discord functions use /tradepanel
 
-## [3.2.2] - 2025-05-05
-### Changed
-- Enhanced the exception handling response.
+## [3.2.3] - 2025-05-07
+### Changed 
+- System for tracking trade states.
 
 ### Fixed
-- Trend direction not showing in log.
-- Failed to print alert when theres a strong buy signal.
-- Symbol printing score instead of symbol in strong buy. (was saved but not staged in last commit)
-
-For all versions please see versionlog
+- Bug causing a trade to be immeditly opened on one coin then directly after it attempts to close a trade on another coin.
+(cause was due to variables being wrote on by coin 1 then used by coin 2)

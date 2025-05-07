@@ -53,11 +53,16 @@ symbols = ['MOODENG/USDT', 'PIPPIN/USDT']
 timeframe = '15m'
 limit = 100
 
-in_trade = False
-long_trade = False
-short_trade = False
-profit = 0
-entry_price = 0
+trade_state = {
+    symbol: {
+        'in_trade': False,
+        'long_trade': False,
+        'short_trade': False,
+        'profit': 0,
+        'entry_price': 0
+    } for symbol in symbols
+}
+
 money_available = 100
 risk_percent = 0.1
 profit_goal = 0.3
@@ -97,43 +102,46 @@ def fetch_trend(symbol):
         return "no trend"
     
 def open_trade(symbol, price):
-    global in_trade, long_trade, short_trade, money_available, profit, entry_price
-    entry_price = price
+    global money_available, position_size
+    state = trade_state[symbol]
+    state['entry_price'] = price
     try:
-        if long_trade or short_trade:
+        if state['long_trade'] or state['short_trade']:
             money_available -= position_size
-            log_and_print(f"✅ OPEN {'Long' if long_trade else 'Short'} TRADE", symbol, price)
-            in_trade = True
+            log_and_print(f"✅ OPEN {'Long' if state['long_trade'] else 'Short'} TRADE", symbol, price)
+            state['in_trade'] = True
     except Exception as e:
         print(f"Exception in open_trade: {e}")
         
 def close_trade(symbol, price):
-    global in_trade, long_trade, short_trade, money_available, profit, entry_price
+    state = trade_state[symbol]
+    global money_available
     
     try:
-        if long_trade == True:
-            profit = (price - entry_price) * (position_size / entry_price)
-            long_trade = False
-        elif short_trade == True: 
-            profit = (entry_price - price) * (position_size / entry_price)
-            short_trade = False
+        if state['long_trade'] == True:
+            profit = (price - state['entry_price']) * (position_size / state['entry_price'])
+            state['long_trade'] = False
+        elif state['short_trade'] == True: 
+            profit = (state['entry_price'] - price) * (position_size / state['entry_price'])
+            state['short_trade'] = False
 
         money_available += position_size + profit
-        log_and_print(f"🚫 CLOSE {'Long' if long_trade else 'Short'} TRADE", symbol, price, profit=profit)
-        in_trade = False
+        log_and_print(f"🚫 CLOSE {'Long' if state['long_trade'] else 'Short'} TRADE", symbol, price, profit=profit)
+        state['in_trade'] = False
     except Exception as e:
         print(f"Exception in close_trade: {e}")
     
 def exit_strategy(symbol, price):
-    global profit
+    global money_available, risk_percent, profit_goal, pnl_target
+    state = trade_state[symbol]
     current_profit = 0
-    if long_trade:
-        current_profit = (price - entry_price) * (position_size / entry_price)
-    elif short_trade:
-        current_profit = (entry_price - price) * (position_size / entry_price)
+    if state['long_trade']:
+        current_profit = (price - state['entry_price']) * (position_size / state['entry_price'])
+    elif state['short_trade']:
+        current_profit = (state['entry_price'] - price) * (position_size / state['entry_price'])
 
     try:
-        if (long_trade or short_trade) and current_profit >= pnl_target:
+        if (state['long_trade'] or state['short_trade']) and current_profit >= pnl_target:
             log_and_print("🎯 EXIT TARGET HIT", symbol, price, profit=current_profit)
             close_trade(symbol, price)
         else:
@@ -173,9 +181,12 @@ def log_and_print(event_type, symbol, price, score=None, profit=None):
 
 # Trading system 
 async def strategy(df, symbol, for_button):
-    global long_trade, short_trade, in_trade, profit, money_available, entry_price
+    global profit, money_available
     last = df.iloc[-1]
     messages = []
+
+    state = trade_state[symbol]
+
 
     trend = fetch_trend(symbol)
     if trend == "uptrend": 
@@ -187,10 +198,10 @@ async def strategy(df, symbol, for_button):
 
     timestamp = last['timestamp'].strftime("%Y-%m-%d %H:%M:%S")
 
-    if long_trade:
-        profit = (last['close'] - entry_price) * (position_size / entry_price)
-    elif short_trade:
-        profit = (entry_price - last['close']) * (position_size / entry_price)
+    if state['long_trade']:
+        profit = (last['close'] - state['entry_price']) * (position_size / state['entry_price'])
+    elif state['short_trade']:
+        profit = (state['entry_price'] - last['close']) * (position_size / state['entry_price'])
     else:
         profit = 0
 
@@ -222,8 +233,8 @@ async def strategy(df, symbol, for_button):
                 try:
                     strong_signal = True
                     log_and_print(f"{trend_emoji} {trend.upper()} | 🚀 STRONG BUY", symbol, last['close'], score=signal_score)
-                    if money_available >= 10 and not in_trade:
-                        long_trade = True
+                    if money_available >= 10 and not state['in_trade']:
+                        state['long_trade'] = True
                         open_trade(symbol, last['close'])
                     if for_button: messages.append(message)
                 except Exception as e:
@@ -240,8 +251,8 @@ async def strategy(df, symbol, for_button):
                 try:
                     strong_signal = True
                     log_and_print(f"{trend_emoji} {trend.upper()} | ⤵️STRONG SELL", symbol, last['close'], score=signal_score)
-                    if money_available >= 10 and not in_trade:
-                        short_trade = True
+                    if money_available >= 10 and not state['in_trade']:
+                        state['short_trade'] = True
                         open_trade(symbol, last['close'])
                     if for_button: messages.append(message)
                 except Exception as e:
